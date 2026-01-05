@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite
+tracer.db
+test_tracer.db
