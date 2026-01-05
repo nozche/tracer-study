@@ -1,0 +1,26 @@
+#!/usr/bin/env php
+<?php
+
+// Path to the front controller
+define('FCPATH', __DIR__ . '/public' . DIRECTORY_SEPARATOR);
+
+// Ensure we are running in CLI.
+if (php_sapi_name() !== 'cli') {
+    exit('The spark script can only be run from the command line.');
+}
+
+// Composer autoload
+if (! file_exists(__DIR__ . '/vendor/autoload.php')) {
+    exit('Composer dependencies not installed. Run `composer install`.');
+}
+require __DIR__ . '/vendor/autoload.php';
+
+// Load our paths configuration file
+require __DIR__ . '/app/Config/Paths.php';
+$paths = new Config\Paths();
+
+// Load the framework bootstrap.
+require rtrim($paths->systemDirectory, '\\/') . '/Boot.php';
+
+// Launch the application CLI
+require_once SYSTEMPATH . 'bootstrap.php';
