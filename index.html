@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Tracer Study</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-uYGZFrSpGwNi4/tYoWG0rrTghdjRb+4vU0u5ZvP6k9CfD1pDVhhri/nzJsxgF1e4" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Dashboard Staf</p>
+      <h1>Ringkasan Tracer Study</h1>
+      <p class="lede">Pantau agregat per pertanyaan, visualisasi sederhana, dan filter dimensi untuk eksplorasi cepat.</p>
+    </div>
+    <div class="stat-chip" id="overall-response-count" aria-live="polite"></div>
+  </header>
+
+  <section class="panel" aria-labelledby="filter-heading">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow" id="filter-heading">Filter dimensi</p>
+        <h2>Angkatan, Fakultas, Periode</h2>
+      </div>
+      <button id="reset-filters" class="ghost-button" type="button">Reset filter</button>
+    </div>
+    <div class="filters">
+      <label class="filter-field">
+        <span>Angkatan</span>
+        <select id="filter-angkatan"></select>
+      </label>
+      <label class="filter-field">
+        <span>Fakultas</span>
+        <select id="filter-fakultas"></select>
+      </label>
+      <label class="filter-field">
+        <span>Periode</span>
+        <select id="filter-periode"></select>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="summary-heading">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow" id="summary-heading">Agregat keseluruhan</p>
+        <h2>Ringkasan cepat</h2>
+      </div>
+    </div>
+    <div id="summary" class="summary-grid" aria-live="polite"></div>
+  </section>
+
+  <section id="questions-container" class="grid"></section>
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
