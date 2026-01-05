@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracer Study Questionnaire Builder</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.5rem; }
+    h1 { margin-bottom: 0.5rem; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .card { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; flex: 1; min-width: 320px; }
+    label { display: block; margin-top: 0.5rem; font-weight: bold; }
+    input, select, textarea { width: 100%; padding: 0.4rem; margin-top: 0.25rem; }
+    button { margin-top: 0.5rem; padding: 0.5rem 0.75rem; cursor: pointer; }
+    ul { padding-left: 1rem; }
+    .question { border: 1px dashed #ccc; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 6px; }
+    .pill { padding: 0.1rem 0.4rem; border-radius: 4px; background: #eef; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>Questionnaire Builder</h1>
+  <p>Kelola periode (draft/active/closed), versi kuisioner, serta susun pertanyaan dengan metadata JSON.</p>
+
+  <div class="row">
+    <div class="card">
+      <h3>Periode</h3>
+      <label>Nama</label>
+      <input id="period-name" placeholder="Contoh: 2024/2025" />
+      <label>Status</label>
+      <select id="period-status">
+        <option value="draft">draft</option>
+        <option value="active">active</option>
+        <option value="closed">closed</option>
+      </select>
+      <button onclick="createPeriod()">Tambah Periode</button>
+      <div id="periods"></div>
+    </div>
+
+    <div class="card">
+      <h3>Versi Kuisioner</h3>
+      <label>Pilih Periode</label>
+      <select id="period-select" onchange="loadQuestionnaires()"></select>
+      <button onclick="cloneLatest()">Duplikasi versi terbaru</button>
+      <div id="questionnaire-info"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Builder Pertanyaan</h3>
+    <label>Judul</label>
+    <input id="title" placeholder="Judul kuisioner" />
+    <label>Deskripsi</label>
+    <textarea id="description" rows="2" placeholder="Opsional"></textarea>
+
+    <h4>Tambah Pertanyaan</h4>
+    <label>Teks</label>
+    <input id="q-text" />
+    <label>Tipe</label>
+    <select id="q-type">
+      <option value="single">Single choice</option>
+      <option value="multiple">Multiple choice</option>
+      <option value="text">Text</option>
+      <option value="scale">Scale</option>
+      <option value="matrix">Matrix</option>
+    </select>
+    <label>Wajib?</label>
+    <select id="q-required">
+      <option value="false">Tidak</option>
+      <option value="true">Ya</option>
+    </select>
+    <label>Posisi</label>
+    <input id="q-position" type="number" value="0" />
+    <label>Metadata JSON (opsi/label/skala)</label>
+    <textarea id="q-metadata" rows="3" placeholder='{"options": ["A", "B"], "scale": {"min":1,"max":5}}'></textarea>
+    <button onclick="addQuestion()">Tambah ke daftar</button>
+
+    <h4>Daftar Pertanyaan</h4>
+    <div id="questions"></div>
+    <button onclick="saveQuestionnaire()">Simpan sebagai versi baru</button>
+  </div>
+
+  <script>
+    const api = (path, options = {}) => fetch(path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    }).then(async res => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    });
+
+    let questionBuffer = [];
+
+    function renderQuestions() {
+      const container = document.getElementById('questions');
+      container.innerHTML = '';
+      questionBuffer.sort((a, b) => a.position - b.position);
+      questionBuffer.forEach((q, idx) => {
+        const div = document.createElement('div');
+        div.className = 'question';
+        div.innerHTML = `<strong>${idx + 1}. ${q.text}</strong> <span class="pill">${q.type}</span>
+          <div>Required: ${q.required ? 'Ya' : 'Tidak'} | Posisi: ${q.position}</div>
+          <pre>${JSON.stringify(q.metadata_json || {}, null, 2)}</pre>
+          <button onclick="removeQuestion(${idx})">Hapus</button>`;
+        container.appendChild(div);
+      });
+    }
+
+    function removeQuestion(idx) {
+      questionBuffer.splice(idx, 1);
+      renderQuestions();
+    }
+
+    function addQuestion() {
+      const text = document.getElementById('q-text').value.trim();
+      if (!text) return alert('Teks pertanyaan wajib');
+      const type = document.getElementById('q-type').value;
+      const required = document.getElementById('q-required').value === 'true';
+      const position = Number(document.getElementById('q-position').value || questionBuffer.length);
+      let metadata_json = {};
+      const metadataText = document.getElementById('q-metadata').value.trim();
+      if (metadataText) {
+        try { metadata_json = JSON.parse(metadataText); } catch (e) { return alert('Metadata bukan JSON valid'); }
+      }
+      questionBuffer.push({ text, type, required, position, metadata_json });
+      document.getElementById('q-text').value = '';
+      document.getElementById('q-position').value = questionBuffer.length;
+      document.getElementById('q-metadata').value = '';
+      renderQuestions();
+    }
+
+    function populatePeriods(periods) {
+      const select = document.getElementById('period-select');
+      select.innerHTML = '';
+      periods.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} (${p.status})`;
+        select.appendChild(opt);
+      });
+      if (periods.length) {
+        select.value = periods[0].id;
+        loadQuestionnaires();
+      }
+    }
+
+    function loadPeriods() {
+      api('/periods').then(periods => {
+        const list = document.getElementById('periods');
+        list.innerHTML = periods.map(p => `<div>${p.name} - <strong>${p.status}</strong></div>`).join('');
+        populatePeriods(periods);
+      });
+    }
+
+    function createPeriod() {
+      const name = document.getElementById('period-name').value.trim();
+      const status = document.getElementById('period-status').value;
+      if (!name) return alert('Nama periode wajib');
+      api('/periods', { method: 'POST', body: JSON.stringify({ name, status }) })
+        .then(loadPeriods)
+        .catch(err => alert(err));
+    }
+
+    function loadQuestionnaires() {
+      const periodId = document.getElementById('period-select').value;
+      if (!periodId) return;
+      api(`/periods/${periodId}/questionnaires`).then(list => {
+        const info = document.getElementById('questionnaire-info');
+        if (!list.length) {
+          info.innerHTML = 'Belum ada versi. Tambahkan pertanyaan lalu simpan versi baru.';
+          questionBuffer = [];
+          renderQuestions();
+          return;
+        }
+        const latest = list[0];
+        info.innerHTML = `Versi terbaru: v${latest.version_number} (${new Date(latest.created_at).toLocaleString()}) dengan ${latest.questions.length} pertanyaan.`;
+        questionBuffer = latest.questions.map(q => ({ ...q }));
+        document.getElementById('title').value = latest.title || '';
+        document.getElementById('description').value = latest.description || '';
+        renderQuestions();
+      });
+    }
+
+    function saveQuestionnaire() {
+      const periodId = document.getElementById('period-select').value;
+      if (!periodId) return alert('Pilih periode');
+      api(`/periods/${periodId}/questionnaires`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: document.getElementById('title').value,
+          description: document.getElementById('description').value,
+          questions: questionBuffer,
+          clone_latest: false,
+        })
+      }).then(res => {
+        alert(`Versi baru tersimpan: v${res.version_number}`);
+        loadQuestionnaires();
+      }).catch(err => alert(err));
+    }
+
+    function cloneLatest() {
+      const periodId = document.getElementById('period-select').value;
+      if (!periodId) return alert('Pilih periode');
+      api(`/periods/${periodId}/questionnaires/clone`, { method: 'POST' })
+        .then(res => {
+          alert(`Versi baru hasil duplikasi: v${res.version_number}`);
+          loadQuestionnaires();
+        })
+        .catch(err => alert(err));
+    }
+
+    loadPeriods();
+  </script>
+</body>
+</html>
